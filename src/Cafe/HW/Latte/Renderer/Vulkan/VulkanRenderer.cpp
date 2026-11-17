@@ -634,7 +634,7 @@ VulkanRenderer::VulkanRenderer()
 	deviceFeatures.logicOp = m_featureControl.deviceFeatures.logic_op;
 	deviceFeatures.occlusionQueryPrecise = m_featureControl.deviceFeatures.occlusion_query_precise;
 	deviceFeatures.depthClamp = m_featureControl.deviceFeatures.depth_clamp;
-	deviceFeatures.depthBiasClamp = VK_TRUE;
+	deviceFeatures.depthBiasClamp = deviceFeatures2.features.depthBiasClamp;
 
 	if (m_featureControl.deviceExtensions.pipeline_robustness)
 	{
@@ -787,7 +787,12 @@ VulkanRenderer::VulkanRenderer()
 	m_textureReadbackBufferPtr = (uint8*)bufferPtr;
 
 	// transform feedback ringbuffer
-	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | (m_featureControl.mode.useTFEmulationViaSSBO ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT : 0), 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
+	VkBufferUsageFlags xfbUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	if (m_featureControl.deviceExtensions.transform_feedback)
+		xfbUsage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+	if (m_featureControl.mode.useTFEmulationViaSSBO)
+		xfbUsage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), xfbUsage, 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
 
 	// occlusion query result buffer
 	if (!memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
@@ -4354,7 +4359,8 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = colorAttachmentCount;
+	m_numColorAttachments = (uint32)numColorAttachments;
+	subpass.colorAttachmentCount = m_numColorAttachments;
 	subpass.pColorAttachments = color_attachments_references.data();
 	subpass.inputAttachmentCount = 0;
 	subpass.pInputAttachments = nullptr;

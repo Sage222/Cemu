@@ -110,11 +110,14 @@ void VKRSynchronizedRingAllocator::FlushReservation(AllocatorReservation_t& uplo
 {
 	cemu_assert_debug(m_bufferType == VKR_BUFFER_TYPE::STAGING); // only the staging buffer isn't coherent
 	// todo - use nonCoherentAtomSize for flush size (instead of hardcoded constant)
+	const VkDeviceSize atomSize = 64;
+	const VkDeviceSize alignedOffset = uploadReservation.bufferOffset & ~(atomSize - 1);
+	const VkDeviceSize alignedEnd = ((uploadReservation.bufferOffset + uploadReservation.size) + atomSize - 1) & ~(atomSize - 1);
 	VkMappedMemoryRange flushedRange{};
 	flushedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 	flushedRange.memory = uploadReservation.vkMem;
-	flushedRange.offset = uploadReservation.bufferOffset;
-	flushedRange.size = uploadReservation.size;
+	flushedRange.offset = alignedOffset;
+	flushedRange.size = alignedEnd - alignedOffset;
 	vkFlushMappedMemoryRanges(m_vkr->GetLogicalDevice(), 1, &flushedRange);
 }
 
@@ -208,11 +211,14 @@ void VKRSynchronizedHeapAllocator::FlushReservation(AllocatorReservation* upload
 {
 	if (m_chunkedHeap.RequiresFlush(uploadReservation->bufferIndex))
 	{
+		const VkDeviceSize atomSize = 64;
+		const VkDeviceSize alignedOffset = uploadReservation->bufferOffset & ~(atomSize - 1);
+		const VkDeviceSize alignedEnd = ((uploadReservation->bufferOffset + uploadReservation->size) + atomSize - 1) & ~(atomSize - 1);
 		VkMappedMemoryRange flushedRange{};
 		flushedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 		flushedRange.memory = uploadReservation->vkMem;
-		flushedRange.offset = uploadReservation->bufferOffset;
-		flushedRange.size = uploadReservation->size;
+		flushedRange.offset = alignedOffset;
+		flushedRange.size = alignedEnd - alignedOffset;
 		vkFlushMappedMemoryRanges(VulkanRenderer::GetInstance()->GetLogicalDevice(), 1, &flushedRange);
 	}
 }

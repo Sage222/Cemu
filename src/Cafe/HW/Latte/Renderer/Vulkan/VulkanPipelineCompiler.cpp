@@ -567,7 +567,7 @@ void PipelineCompiler::InitRasterizerState(const LatteContextRegister& latteRegi
 	if (vkRenderer->m_featureControl.deviceExtensions.nv_fill_rectangle && isPrimitiveRect)
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL_RECTANGLE_NV;
 
-	rasterizer.depthClampEnable = VK_TRUE; // depth clamping is always enabled
+	rasterizer.depthClampEnable = vkRenderer->m_featureControl.deviceFeatures.depth_clamp ? VK_TRUE : VK_FALSE;
 
 	rasterizer.lineWidth = 1.0f; // TODO -> mmPA_SU_LINE_CNTL
 
@@ -686,7 +686,7 @@ void PipelineCompiler::InitBlendState(const LatteContextRegister& latteRegister,
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 
 	const auto logicOp = colorControlReg.get_ROP();
-	if (logicOp == Latte::LATTE_CB_COLOR_CONTROL::E_LOGICOP::COPY)
+	if (logicOp == Latte::LATTE_CB_COLOR_CONTROL::E_LOGICOP::COPY || !VulkanRenderer::GetInstance()->m_featureControl.deviceFeatures.logic_op)
 	{
 		colorBlending.logicOpEnable = VK_FALSE;
 		colorBlending.logicOp = VK_LOGIC_OP_COPY;
@@ -711,7 +711,7 @@ void PipelineCompiler::InitBlendState(const LatteContextRegister& latteRegister,
 		}
 	}
 
-	colorBlending.attachmentCount = colorBlendAttachments.size();
+	colorBlending.attachmentCount = renderPassObj->GetNumColorAttachments();
 	colorBlending.pAttachments = colorBlendAttachments.data();
 
 	// we use VK_DYNAMIC_STATE_BLEND_CONSTANTS, the blend constants here don't matter

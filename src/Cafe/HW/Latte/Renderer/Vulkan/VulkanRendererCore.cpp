@@ -1009,6 +1009,8 @@ void VulkanRenderer::sync_inputTexturesChanged()
 	// barrier here
 	if (writeFlushRequired)
 	{
+		if (m_state.activeRenderpassFBO != nullptr)
+			draw_endRenderPass();
 		VkMemoryBarrier memoryBarrier{};
 		memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 		memoryBarrier.srcAccessMask = 0;
@@ -1164,17 +1166,21 @@ void VulkanRenderer::draw_setRenderPass()
 	auto vkObjRenderPass = fboVk->GetRenderPassObj();
 	auto vkObjFramebuffer = fboVk->GetFramebufferObj();
 
-	bool overridePassReuse = m_state.hasRenderSelfDependency && (GetConfig().vk_accurate_barriers || m_state.activePipelineInfo->neverSkipAccurateBarrier);
+	bool overridePassReuse = m_state.hasRenderSelfDependency;
 
 	if (!overridePassReuse && m_state.activeRenderpassFBO == fboVk)
 	{
 		if (m_state.descriptorSetsChanged)
 			sync_inputTexturesChanged();
-		return;
+		if (m_state.activeRenderpassFBO == fboVk)
+			return;
 	}
-	draw_endRenderPass();
-	if (m_state.descriptorSetsChanged)
-		sync_inputTexturesChanged();
+	else
+	{
+		draw_endRenderPass();
+		if (m_state.descriptorSetsChanged)
+			sync_inputTexturesChanged();
+	}
 
 	// assume that FBO changed, update self-dependency state
 	m_state.hasRenderSelfDependency = fboVk->CheckForCollision(m_state.activeVertexDS, m_state.activeGeometryDS, m_state.activePixelDS);

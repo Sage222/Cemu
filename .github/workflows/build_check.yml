@@ -1,20 +1,62 @@
-name: Build check
+name: Build Android APK (Pixel 10 Pro)
 on:
   workflow_dispatch:
-  pull_request:
-    paths-ignore:
-      - "*.md"
-    types:
-      - opened
-      - synchronize
-      - reopened
   push:
-    paths-ignore:
-      - "*.md"
     branches:
       - main
+      - android-port
+
+env:
+  VCPKG_ROOT: "${{ github.workspace }}/dependencies/vcpkg"
+  VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite"
 
 jobs:
-  build:
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
+  build-android:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.vcpkg-cache
+          key: vcpkg-android-arm64-${{ hashFiles('vcpkg.json', 'dependencies/vcpkg') }}
+          restore-keys: |
+            vcpkg-android-arm64-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update -qq
+          sudo apt install -y gettext mono-complete ninja-build pkg-config
+
+      - name: Bootstrap vcpkg
+        run: |
+          mkdir -p "${{ github.workspace }}/.vcpkg-cache"
+          bash ./dependencies/vcpkg/bootstrap-vcpkg.sh
+
+      - name: Uncompile message catalogs
+        run: |
+          for mo_file in bin/resources/*/cemu.mo
+          do
+            echo $mo_file
+            language_code=$(basename $(dirname $mo_file))
+            po_file=src/android/app/src/main/assets/translations/$language_code/cemu.po
+            mkdir -p $(dirname $po_file)
+            msgunfmt $mo_file -o $po_file || echo "Failed to uncompile message catalog from $mo_file"
+          done
+
+      - name: Build Cemu Android APK
+        run: |
+          export JAVA_HOME=$JAVA_HOME_21_X64
+          cd ./src/android
+          ./gradlew assembleRelease
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cemu-bin-android
+          path: ./src/android/app/build/outputs/apk/*/*.apk
