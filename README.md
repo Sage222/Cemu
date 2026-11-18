@@ -1,5 +1,7 @@
 # **Cemu - Android Port (Wii U Emulator)**
 
+** Attempted to modify to work with Pixel 10 Pro XL.  Not working at this stage. **
+
 This is the Android port of **Cemu**, a Wii U emulator written in C/C++.
 It is still early and experimental. Stability, performance, and features are not guaranteed, and some functionality may be missing compared to the desktop version.
 
