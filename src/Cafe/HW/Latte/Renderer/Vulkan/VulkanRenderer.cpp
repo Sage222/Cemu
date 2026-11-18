@@ -700,6 +700,16 @@ VulkanRenderer::VulkanRenderer()
 		pipelineRobustnessFeature.pipelineRobustness = VK_TRUE;
 	}
 
+	// enable VK_EXT_depth_clip_enable
+	VkPhysicalDeviceDepthClipEnableFeaturesEXT depthClipFeature{};
+	if (m_featureControl.deviceExtensions.depth_clip_enable)
+	{
+		depthClipFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT;
+		depthClipFeature.pNext = deviceExtensionFeatures;
+		deviceExtensionFeatures = &depthClipFeature;
+		depthClipFeature.depthClipEnable = VK_TRUE;
+	}
+
 	std::vector<const char*> used_extensions;
 	VkDeviceCreateInfo createInfo = CreateDeviceCreateInfo(queueCreateInfos, deviceFeatures, deviceExtensionFeatures, used_extensions);
 
@@ -1289,8 +1299,6 @@ VkDeviceCreateInfo VulkanRenderer::CreateDeviceCreateInfo(const std::vector<VkDe
 	}
 	if (m_featureControl.deviceExtensions.transform_feedback)
 		used_extensions.emplace_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
-	if (m_featureControl.deviceExtensions.depth_clip_enable)
-		used_extensions.emplace_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
 	if (m_featureControl.deviceExtensions.pipeline_robustness)
 		used_extensions.emplace_back(VK_EXT_PIPELINE_ROBUSTNESS_EXTENSION_NAME);
 
@@ -1974,7 +1982,7 @@ void VulkanRenderer::QueryAvailableFormats()
 	VkFormatProperties fmtProp{};
 	vkGetPhysicalDeviceFormatProperties(m_physicalDevice, VK_FORMAT_D24_UNORM_S8_UINT, &fmtProp);
 	// D24S8
-	if (fmtProp.optimalTilingFeatures != 0) // todo - more restrictive check
+	if ((fmtProp.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
 	{
 		m_supportedFormatInfo.fmt_d24_unorm_s8_uint = true;
 	}
@@ -2331,7 +2339,7 @@ void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size)
 		}
 	}
 
-	const auto filename = dir / fmt::format(L"{:016x}.bin", CafeSystem::GetForegroundTitleId());
+	const auto filename = dir / fmt::format(L"{:016x}_pvr2.bin", CafeSystem::GetForegroundTitleId());
 
 	while (true)
 	{
@@ -2397,7 +2405,7 @@ void VulkanRenderer::CreatePipelineCache()
 	const auto dir = ActiveSettings::GetCachePath("shaderCache/driver/vk");
 	if (fs::exists(dir))
 	{
-		const auto filename = dir / fmt::format("{:016x}.bin", CafeSystem::GetForegroundTitleId());
+		const auto filename = dir / fmt::format("{:016x}_pvr2.bin", CafeSystem::GetForegroundTitleId());
 		auto file = std::ifstream(filename, std::ios::in | std::ios::binary | std::ios::ate);
 		if (file.is_open())
 		{
@@ -2836,6 +2844,7 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
 			// used by Color Splash and Resident Evil
 			formatInfoOut->vkImageFormat = VK_FORMAT_R8G8B8A8_UINT; // todo - should we use ABGR format?
 			formatInfoOut->decoder = TextureDecoder_X24_G8_UINT::getInstance(); // todo - verify
+			break;
 		case Latte::E_GX2SURFFMT::R32_X8_FLOAT:
 			// seen in Disney Infinity 3.0
 			formatInfoOut->vkImageFormat = VK_FORMAT_R32_SFLOAT;
@@ -4359,8 +4368,7 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	m_numColorAttachments = (uint32)numColorAttachments;
-	subpass.colorAttachmentCount = m_numColorAttachments;
+	subpass.colorAttachmentCount = colorAttachmentCount;
 	subpass.pColorAttachments = color_attachments_references.data();
 	subpass.inputAttachmentCount = 0;
 	subpass.pInputAttachments = nullptr;

@@ -25,17 +25,17 @@ consteval TBuiltInResource GetDefaultBuiltInResource()
 	defaultResource.maxTextureCoords = 32;
 	defaultResource.maxVertexAttribs = 64;
 	defaultResource.maxVertexUniformComponents = 4096;
-	defaultResource.maxVaryingFloats = 64;
+	defaultResource.maxVaryingFloats = 128;
 	defaultResource.maxVertexTextureImageUnits = 32;
 	defaultResource.maxCombinedTextureImageUnits = 80;
 	defaultResource.maxTextureImageUnits = 32;
 	defaultResource.maxFragmentUniformComponents = 4096;
 	defaultResource.maxDrawBuffers = 32;
 	defaultResource.maxVertexUniformVectors = 128;
-	defaultResource.maxVaryingVectors = 8;
+	defaultResource.maxVaryingVectors = 32;
 	defaultResource.maxFragmentUniformVectors = 16;
-	defaultResource.maxVertexOutputVectors = 16;
-	defaultResource.maxFragmentInputVectors = 15;
+	defaultResource.maxVertexOutputVectors = 32;
+	defaultResource.maxFragmentInputVectors = 32;
 	defaultResource.minProgramTexelOffset = -8;
 	defaultResource.maxProgramTexelOffset = 7;
 	defaultResource.maxClipDistances = 8;
@@ -50,9 +50,9 @@ consteval TBuiltInResource GetDefaultBuiltInResource()
 	defaultResource.maxComputeImageUniforms = 8;
 	defaultResource.maxComputeAtomicCounters = 8;
 	defaultResource.maxComputeAtomicCounterBuffers = 1;
-	defaultResource.maxVaryingComponents = 60;
-	defaultResource.maxVertexOutputComponents = 64;
-	defaultResource.maxGeometryInputComponents = 64;
+	defaultResource.maxVaryingComponents = 128;
+	defaultResource.maxVertexOutputComponents = 128;
+	defaultResource.maxGeometryInputComponents = 128;
 	defaultResource.maxGeometryOutputComponents = 128;
 	defaultResource.maxFragmentInputComponents = 128;
 	defaultResource.maxImageUnits = 8;
@@ -436,7 +436,7 @@ void RendererShaderVk::ShaderCacheLoading_begin(uint64 cacheTitleId)
 		delete s_spirvCache;
 		s_spirvCache = nullptr;
 	}
-	uint32 spirvCacheMagic = GeneratePrecompiledCacheId();
+	uint32 spirvCacheMagic = GeneratePrecompiledCacheId() ^ 0x50565232u;
 	const std::string cacheFilename = fmt::format("{:016x}_spirv.bin", cacheTitleId);
 	const fs::path cachePath = ActiveSettings::GetCachePath("shaderCache/precompiled/{}", cacheFilename);
 	s_spirvCache = FileCache::Open(cachePath, true, spirvCacheMagic);

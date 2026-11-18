@@ -27,6 +27,22 @@ void rectsEmulationGS_outputSingleVertex(std::string& gsSrc, LatteDecompilerShad
 			continue;
 		gsSrc.append(fmt::format("passParameterSem{}Out = passParameterSem{}In[{}];\r\n", vsSemanticId, vsSemanticId, vIdx));
 	}
+	for (sint32 i = 0; i < psInputTable->count; i++)
+	{
+		if (psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+			continue;
+		bool exported = false;
+		for (uint32 j = 0; j < 32; j++)
+		{
+			if ((parameterMask & (1 << j)) && psInputTable->getVertexShaderOutParamSemanticId(latteRegister.GetRawView(), j) == psInputTable->import[i].semanticId)
+			{
+				exported = true;
+				break;
+			}
+		}
+		if (!exported)
+			gsSrc.append(fmt::format("dummyPassParameterSem{}Out = vec4(0.0);\r\n", i));
+	}
 	gsSrc.append(fmt::format("gl_Position = gl_in[{}].gl_Position;\r\n", vIdx));
 	gsSrc.append("EmitVertex();\r\n");
 }
@@ -45,6 +61,22 @@ void rectsEmulationGS_outputGeneratedVertex(std::string& gsSrc, LatteDecompilerS
 		if (!psInputTable->hasPSImportForSemanticId(vsSemanticId))
 			continue;
 		gsSrc.append(fmt::format("passParameterSem{}Out = gen4thVertex{}(passParameterSem{}In[0], passParameterSem{}In[1], passParameterSem{}In[2]);\r\n", vsSemanticId, variant, vsSemanticId, vsSemanticId, vsSemanticId));
+	}
+	for (sint32 i = 0; i < psInputTable->count; i++)
+	{
+		if (psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+			continue;
+		bool exported = false;
+		for (uint32 j = 0; j < 32; j++)
+		{
+			if ((parameterMask & (1 << j)) && psInputTable->getVertexShaderOutParamSemanticId(latteRegister.GetRawView(), j) == psInputTable->import[i].semanticId)
+			{
+				exported = true;
+				break;
+			}
+		}
+		if (!exported)
+			gsSrc.append(fmt::format("dummyPassParameterSem{}Out = vec4(0.0);\r\n", i));
 	}
 	gsSrc.append(fmt::format("gl_Position = gen4thVertex{}(gl_in[0].gl_Position, gl_in[1].gl_Position, gl_in[2].gl_Position);\r\n", variant));
 	gsSrc.append("EmitVertex();\r\n");
@@ -105,6 +137,32 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 				gsSrc.append(fmt::format(" vec4 passParameterSem{}In[];\r\n", vsSemanticId));
 			else
 				gsSrc.append(fmt::format(" vec4 passParameterSem{}Out;\r\n", vsSemanticId));
+		}
+		for (sint32 i = 0; i < psInputTable->count; i++)
+		{
+			if (psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+				continue;
+			bool exported = false;
+			for (uint32 j = 0; j < 32; j++)
+			{
+				if ((parameterMask & (1 << j)) && psInputTable->getVertexShaderOutParamSemanticId(latteRegister.GetRawView(), j) == psInputTable->import[i].semanticId)
+				{
+					exported = true;
+					break;
+				}
+			}
+			if (!exported)
+			{
+				gsSrc.append(fmt::format("layout(location = {}) ", i));
+				if (psInputTable->import[i].isFlat)
+					gsSrc.append("flat ");
+				if (psInputTable->import[i].isNoPerspective)
+					gsSrc.append("noperspective ");
+				if (f == 0)
+					gsSrc.append(fmt::format("in vec4 dummyPassParameterSem{}In[];\r\n", i));
+				else
+					gsSrc.append(fmt::format("out vec4 dummyPassParameterSem{}Out;\r\n", i));
+			}
 		}
 	}
 
@@ -711,7 +769,7 @@ void PipelineCompiler::InitBlendState(const LatteContextRegister& latteRegister,
 		}
 	}
 
-	colorBlending.attachmentCount = renderPassObj->GetNumColorAttachments();
+	colorBlending.attachmentCount = colorBlendAttachments.size();
 	colorBlending.pAttachments = colorBlendAttachments.data();
 
 	// we use VK_DYNAMIC_STATE_BLEND_CONSTANTS, the blend constants here don't matter

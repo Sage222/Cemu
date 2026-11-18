@@ -287,9 +287,7 @@ namespace LatteDecompiler
 		if (decompilerContext->options->spirvInstrinsics.hasRoundingModeRTEFloat32)
 		{
 			src->add("#extension GL_EXT_spirv_intrinsics: enable" _CRLF);
-			src->add("spirv_execution_mode(capabilities = [4467], extensions = [\"SPV_KHR_float_controls\"], 4462, 16);" _CRLF);
 			src->add("spirv_execution_mode(capabilities = [4467], extensions = [\"SPV_KHR_float_controls\"], 4462, 32);" _CRLF);
-			src->add("spirv_execution_mode(capabilities = [4467], extensions = [\"SPV_KHR_float_controls\"], 4462, 64);" _CRLF);
 		}
 		src->add("#else" _CRLF);
 		// OpenGL defines
@@ -391,16 +389,26 @@ namespace LatteDecompiler
 			src->addFmt(" vec4 passParameterSem{};" _CRLF, psInputTable->import[psInputIndex].semanticId);
 		}
 
-		// TODO: fix this
-		for (uint32 i = 0; i < 32; i++)
+		for (sint32 i = 0; i < psInputTable->count; i++)
 		{
+			if (psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+				continue;
 			if (!activePassParams[i])
-				src->addFmt("layout(location = {0}) out vec4 dummyPassParameterSem{0};" _CRLF, i);
+			{
+				src->addFmt("layout(location = {}) ", i);
+				if (psInputTable->import[i].isFlat)
+					src->add("flat ");
+				if (psInputTable->import[i].isNoPerspective)
+					src->add("noperspective ");
+				src->addFmt("out vec4 dummyPassParameterSem{};" _CRLF, i);
+			}
 		}
 
 		src->add("void dummyPassParamInit() {" _CRLF);
-		for (uint32 i = 0; i < 32; i++)
+		for (sint32 i = 0; i < psInputTable->count; i++)
 		{
+			if (psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+				continue;
 			if (!activePassParams[i])
 				src->addFmt("dummyPassParameterSem{} = vec4(0.0, 0.0, 0.0, 0.0);" _CRLF, i);
 		}

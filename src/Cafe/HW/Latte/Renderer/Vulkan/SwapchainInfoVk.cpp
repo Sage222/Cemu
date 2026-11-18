@@ -68,7 +68,7 @@ void SwapchainInfoVk::Create()
 
 	VkSwapchainCreateInfoKHR create_info = CreateSwapchainCreateInfo(m_surface, details, m_surfaceFormat, image_count, m_actualExtent);
 	create_info.oldSwapchain = nullptr;
-	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (details.capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
 	VkResult result = vkCreateSwapchainKHR(m_logicalDevice, &create_info, nullptr, &m_swapchain);
 	if (result != VK_SUCCESS)
@@ -439,7 +439,17 @@ VkSwapchainCreateInfoKHR SwapchainInfoVk::CreateSwapchainCreateInfo(VkSurfaceKHR
 #else
 	createInfo.preTransform = swapchainSupport.capabilities.currentTransform;
 #endif
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	if (!(swapchainSupport.capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR))
+	{
+		if (swapchainSupport.capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)
+			compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+		else if (swapchainSupport.capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
+			compositeAlpha = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
+		else if (swapchainSupport.capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)
+			compositeAlpha = VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
+	}
+	createInfo.compositeAlpha = compositeAlpha;
 	createInfo.presentMode = ChoosePresentMode(swapchainSupport.presentModes);
 	createInfo.clipped = VK_TRUE;
 
